@@ -1,4 +1,59 @@
 #! /bin/zsh
-#tablecloth
+# tablecloth 
+
+# ...REQUIRES iptables
+IPTABLES=$(which iptables 2>/dev/null)
+:
+if [ "$?" != "0" ];then
+    echo "This Script is a wrapper for iptables"
+    echo "You need to install iptables first"
+    exit
+fi
+
+#######################
+# predefine functions #
+#######################
+
+# table_set()
+
+# blacklist_add()
+
+# table_save()
+
+# table_restart()
+
+# help()
+function help() {
+    cat << EOF
+--------
+ Usage:
+--------
+-h ([h]elp): Display this help and exit.
+-r ([r]eload): Reload rule only.
+-R ([R]eboot): Save current settings and reboot iptables completely
+-p ([p]rint): Print only. Don't execute anything
+-b [ip-address] (add to [b]lacklist): Add the address to the blacklist and reload enforce rule.
+EOF
+}
+
+################
+# Main Process #
+################
+
+# process options
+
+while getopts :b:rRph opt;do
+    case $opt in
+        r) ;;
+        R) ;;
+        b) ;;
+        p) ;;
+        h) help
+           exit;;
+        \?) echo "[Fatal] Illegal option -$OPTARG"
+            echo 
+            help;;
+    esac
+done
 
 
