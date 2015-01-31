@@ -60,7 +60,7 @@ function cc () {
     $IPTABLES -N $chainname
     for cc in $@;do
         sed -n "s/^${cc}\t//p" /etc/firewall/cidr.txt | while read address;do
-            iptables -A $chainname -s $address -j ${ACTION}
+            $IPTABLES -A $chainname -s $address -j ${ACTION}
         done
     done
 }
