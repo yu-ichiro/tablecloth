@@ -146,6 +146,9 @@ function tableset () {
     $IPTABLES -A INPUT -p tcp --dport 113 -j REJECT --reject-with tcp-reset
     $LOGC "SSH($SSH_PORT): ACCEPT"
     $IPTABLES -A INPUT -p tcp --dport $SSH_PORT -j ACCEPT
+    $LOGC "Fake SSH"
+    $IPTABLES -A PREROUTING -t nat -p tcp --dport 22 -j REDIRECT --to-port 22022
+    $IPTABLES -A INPUT -p tcp --dport 22022 -j ACCEPT
 
     $IPTABLES -A INPUT -m limit --limit 1/s -j LOG --log-prefix "${lpre}matchfailed: " --log-level=debug
     $IPTABLES -A INPUT -j DROP
