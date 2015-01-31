@@ -13,27 +13,84 @@ if [ "$?" != "0" ];then
 #   exit
 fi
 
+# set global log prefix
+lpre="[firewall]"
+
 ##################
 # iptable chains #
 ##################
 
 # blacklist
+function blackcheck () {
+    [ ! -e /etc/firewall/blacklist ]&& return
+    $IPTABLES -N BLACK
+    for blackip in $(cat /etc/firewall/blacklist);do
+        $IPTABLES -A BLACK -s $blackip -j DROP
+    done
+
+    $IPTABLES -A INPUT -j BLACK
+}
 
 # whitelist
+function whitecheck () {
+    [ ! -e /etc/firewall/whitelist ]&& return
+    $IPTABLES -N WHITE
+    for whiteip in $(cat /etc/firewall/whitelist);do
+        $IPTABLES -A -s $whiteip -j ACCEPT
+    done
+
+    $IPTABLES -A INPUT -j WHITE
+}
 
 # ping --limit
+function pings () {
+    $IPTABLES -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/s -j ACCEPT
+}
 
-# cc [country code] ( accept | drop )
+# cc ( accept | drop ) [country code..]
+function cc () {
+    local ACTION=${1:-N}
+    shift
+    [ "$ACTION" != "ACCEPT" -a "$ACTION" != "DROP" ]&&return
+    local chainname=${ACTION}_$(echo $@ | sed "s/ /_/g")
+    [ ! -e /etc/firewall/cidr.txt ]&& return
+    $IPTABLES -N $chainname
+    for cc in $@;do
+        sed -n "s/^${cc}\t//p" /etc/firewall/cidr.txt | while read address;do
+            iptables -A $chainname -s $address -j ${ACTION}
+        done
+    done
+}
 
 # fragment
+function fragment () {
+   $IPTABLES -A INPUT -f -m limit --limit 30/m -j LOG --log-level=debug --log-prefix "${lpre}frag:"
+   $IPTABLES -A INPUT -f -j DROP
+}
 
-# stealth scan
+# stealth_scan
+function stealth_scan () {
+    $IPTABLES -N STEALTH_SCAN # "STEALTH_SCAN" という名前でチェーンを作る
+    $IPTABLES -A STEALTH_SCAN -m limit --limit 30/m -j LOG --log-level=debug --log-prefix "${lpre}stealth:"
+    $IPTABLES -A STEALTH_SCAN -j DROP
 
-# SYN filter --hash-limit
+    # ステルススキャンらしきパケットは "STEALTH_SCAN" チェーンへジャンプする
+    $IPTABLES -A INPUT -p tcp --tcp-flags SYN,ACK SYN,ACK -m state --state NEW -j STEALTH_SCAN
+    $IPTABLES -A INPUT -p tcp --tcp-flags ALL NONE -j STEALTH_SCAN
+
+    $IPTABLES -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN         -j STEALTH_SCAN
+    $IPTABLES -A INPUT -p tcp --tcp-flags SYN,RST SYN,RST         -j STEALTH_SCAN
+    $IPTABLES -A INPUT -p tcp --tcp-flags ALL SYN,RST,ACK,FIN,URG -j STEALTH_SCAN
+
+    $IPTABLES -A INPUT -p tcp --tcp-flags FIN,RST FIN,RST -j STEALTH_SCAN
+    $IPTABLES -A INPUT -p tcp --tcp-flags ACK,FIN FIN     -j STEALTH_SCAN
+    $IPTABLES -A INPUT -p tcp --tcp-flags ACK,PSH PSH     -j STEALTH_SCAN
+    $IPTABLES -A INPUT -p tcp --tcp-flags ACK,URG URG     -j STEALTH_SCAN
+}
+
+# SSH Access
 
 # HTTP --hash-limit
-
-# broadcast address drop
 
 #######################
 # predefine functions #
@@ -45,6 +102,8 @@ function tableset () {
     $LOGC "Setting iptable..."
     $LOGC "Flushing old rules.."
     $IPTABLES -F
+    $LOGC "Flushing old chains.."
+    $IPTABLES -X
     
     $LOGC "INPUT Policy: DROP"
     $IPTABLES -P INPUT DROP
@@ -53,6 +112,9 @@ function tableset () {
     $LOGC "FORWARD Policy: DROP"
     $IPTABLES -P FORWARD DROP
     
+    $LOGC "Broadcast, Multicast: DROP"
+    $IPTABLES -A INPUT -m addrtype --dst-type BROADCAST,MULTICAST -m limit --limit 30/m -j LOG --log-prefix "${lpre}bcast-mcast:" --log-level=debug
+    $IPTABLES -A INPUT -m addrtype --dst-type BROADCAST,MULTICAST -j DROP
     $LOGC "Loopbacks: ACCEPT"
     $IPTABLES -A INPUT -i lo -j ACCEPT
     $IPTABLES -A OUTPUT -o lo -j ACCEPT
@@ -60,12 +122,29 @@ function tableset () {
     $LOGC "Established Connections: ACCEPT"
     $IPTABLES -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
     
+    $LOGC "Whitelist: ACCEPT"
+    whitecheck
+
+    $LOGC "Blacklist: DROP"
+    blackcheck
+
+    $LOGC "DROP CN IN EG PK"
+    cc DROP CN IN EG PK
+    $IPTABLES -A INPUT -j DROP_CN_IN_EG_PK
+
+    $LOGC "Stealth Scan: DROP"
+    stealth_scan
+    $LOGC "Fragment: DROP"
+    fragment
     $LOGC "Services:"
     $LOGC "IDENT: REJECT"
     $IPTABLES -A INPUT -p tcp --dport 113 -j REJECT --reject-with tcp-reset
     $LOGC "SSH($SSH_PORT): ACCEPT"
     $IPTABLES -A INPUT -p tcp --dport $SSH_PORT -j ACCEPT
-    
+
+    $IPTABLES -A INPUT -m limit --limit 1/s -j LOG --log-prefix "${lpre}matchfailed: " --log-level=debug
+    $IPTABLES -A INPUT -j DROP
+
 }
 # blacklist_add()
 
