@@ -3,19 +3,70 @@
 
 # ...REQUIRES iptables
 IPTABLES=$(which iptables 2>/dev/null)
-:
+
 if [ "$?" != "0" ];then
     echo "This Script is a wrapper for iptables"
     echo "You need to install iptables first"
-    exit
+    echo "=================================="
+    echo
+    IPTABLES=:
+#   exit
 fi
+
+##################
+# iptable chains #
+##################
+
+# blacklist
+
+# whitelist
+
+# ping --limit
+
+# cc [country code] ( accept | drop )
+
+# fragment
+
+# stealth scan
+
+# SYN filter --hash-limit
+
+# HTTP --hash-limit
+
+# broadcast address drop
 
 #######################
 # predefine functions #
 #######################
 
-# table_set()
+# tableset(isSilent)
+function tableset () {
+    local LOGC=${1:-echo}
+    $LOGC "Setting iptable..."
+    $LOGC "Flushing old rules.."
+    $IPTABLES -F
+    
+    $LOGC "INPUT Policy: DROP"
+    $IPTABLES -P INPUT DROP
+    $LOGC "OUTPUT Policy: ACCEPT"
+    $IPTABLES -P OUTPUT ACCEPT
+    $LOGC "FORWARD Policy: DROP"
+    $IPTABLES -P FORWARD DROP
+    
+    $LOGC "Loopbacks: ACCEPT"
+    $IPTABLES -A INPUT -i lo -j ACCEPT
+    $IPTABLES -A OUTPUT -o lo -j ACCEPT
 
+    $LOGC "Established Connections: ACCEPT"
+    $IPTABLES -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    
+    $LOGC "Services:"
+    $LOGC "IDENT: REJECT"
+    $IPTABLES -A INPUT -p tcp --dport 113 -j REJECT --reject-with tcp-reset
+    $LOGC "SSH($SSH_PORT): ACCEPT"
+    $IPTABLES -A INPUT -p tcp --dport $SSH_PORT -j ACCEPT
+    
+}
 # blacklist_add()
 
 # table_save()
@@ -32,28 +83,37 @@ function help() {
 -r ([r]eload): Reload rule only.
 -R ([R]eboot): Save current settings and reboot iptables completely
 -p ([p]rint): Print only. Don't execute anything
+-q ([q]uiet): Supress Progress log
 -b [ip-address] (add to [b]lacklist): Add the address to the blacklist and reload enforce rule.
 EOF
+exit
 }
 
 ################
 # Main Process #
 ################
 
+# Flag decleration
+local reload=false reboot=false badaddress= printonly=false quiet=echo
+
 # process options
 
-while getopts :b:rRph opt;do
+[ "${1}" != "" ]|| help 
+while getopts :b:qrRph opt;do
     case $opt in
-        r) ;;
-        R) ;;
-        b) ;;
-        p) ;;
-        h) help
-           exit;;
+        r) reload=true;;
+        R) reboot=true;;
+        b) badaddress=$OPTARG;;
+        p) printonly=true;;
+        q) quiet=:;;
+        h) help;;
         \?) echo "[Fatal] Illegal option -$OPTARG"
             echo 
             help;;
     esac
 done
 
-
+$reload && tableset $quiet
+$reboot && echo "reboot"
+[ "$badaddress" != "" ]&&echo "$badaddress"
+$printonly && echo "printonly" 
