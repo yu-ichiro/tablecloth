@@ -44,7 +44,10 @@ function whitecheck () {
 
 # ping --limit
 function pings () {
-    $IPTABLES -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/s -j ACCEPT
+    # 1 packet per 2sec
+    $IPTABLES -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/s --limit-burst 1 -j ACCEPT
+    $IPTABLES -A INPUT -p icmp --icmp-type echo-request -m limit --limit 1/s --limit-burst 1 -j LOG --log-prefix "${lpre}fast-ping:"
+    $IPTABLES -A INPUT -p icmp --icmp-type echo-request -j DROP
 }
 
 # cc ( accept | drop ) [country code..]
@@ -137,6 +140,8 @@ function tableset () {
     $LOGC "Fragment: DROP"
     fragment
     $LOGC "Services:"
+    $LOGC "Ping: ACCEPT every 2secs"
+    pings
     $LOGC "IDENT: REJECT"
     $IPTABLES -A INPUT -p tcp --dport 113 -j REJECT --reject-with tcp-reset
     $LOGC "SSH($SSH_PORT): ACCEPT"
