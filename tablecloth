@@ -160,6 +160,12 @@ function tableset () {
 
 }
 # blacklist_add()
+function blackadd () {
+    local blackip=${1:?You need to specify an address} LOGC=${2:-echo}
+    $LOGC "Adding $blackip to permanent block-list"
+    $IPTABLES -A BLACK -s $blackip -j DROP
+    echo $blackip >> /etc/firewall/blacklist
+}
 
 # table_save()
 
@@ -207,5 +213,5 @@ done
 
 $reload && tableset $quiet
 $reboot && echo "reboot"
-[ "$badaddress" != "" ]&&echo "$badaddress"
+[ "$badaddress" != "" ]&&blackadd $badaddress $quiet
 $printonly && echo "printonly" 
