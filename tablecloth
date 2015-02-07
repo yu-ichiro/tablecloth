@@ -151,6 +151,7 @@ function tableset () {
     $IPTABLES -A INPUT -p tcp --dport 22022 -j ACCEPT
     $LOGC "DNS: ACCEPT"
     $IPTABLES -A INPUT -p tcp --dport 53 -j ACCEPT
+    $IPTABLES -A INPUT -p udp --dport 53 -j ACCEPT
     $LOGC "HTTP: ACCEPT"
     $IPTABLES -A INPUT -p tcp --dport 80 -j ACCEPT
 
