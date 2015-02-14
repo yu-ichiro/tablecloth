@@ -146,6 +146,8 @@ function tableset () {
     $IPTABLES -A INPUT -p tcp --dport 113 -j REJECT --reject-with tcp-reset
     $LOGC "SSH($SSH_PORT): ACCEPT"
     $IPTABLES -A INPUT -p tcp --dport $SSH_PORT -j ACCEPT
+    $LOGC "HTTP: ACCEPT"
+    $IPTABLES -A INPUT -p tcp --dport 80 -j ACCEPT
     $LOGC "DNS: ACCEPT"
     $IPTABLES -A INPUT -p tcp --dport 53 -j ACCEPT
     $IPTABLES -A INPUT -p udp --dport 53 -j ACCEPT
