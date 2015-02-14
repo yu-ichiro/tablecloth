@@ -36,7 +36,7 @@ function whitecheck () {
     [ ! -e /etc/firewall/whitelist ]&& return
     $IPTABLES -N WHITE
     for whiteip in $(cat /etc/firewall/whitelist);do
-        $IPTABLES -A -s $whiteip -j ACCEPT
+        $IPTABLES -A WHITE -s $whiteip -j ACCEPT
     done
 
     $IPTABLES -A INPUT -j WHITE
